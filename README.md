@@ -4,10 +4,6 @@ A real-time collaborative code editor built with React, Monaco Editor, Yjs, Sock
 
 This project is currently under development and is being built while learning real-world DevOps, containerization, and cloud deployment workflows.
 
-Inspired by the tutorial:
-
-:contentReference[oaicite:0]{index=0}
-
 ---
 
 # 📌 Project Status
