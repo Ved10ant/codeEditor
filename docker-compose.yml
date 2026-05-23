@@ -1,0 +1,31 @@
+services:
+  frontend-dev:
+    profiles: [dev]
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./Frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+
+  frontend:
+    profiles: [prod]
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  backend:
+    profiles: [dev, prod]
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    restart: unless-stopped

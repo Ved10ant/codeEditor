@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+coverage
+*.log
+infra/.terraform
+infra/terraform.tfstate*

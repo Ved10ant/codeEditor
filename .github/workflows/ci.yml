@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            Frontend/package-lock.json
+            Backend/package-lock.json
+
+      - name: Build frontend
+        working-directory: Frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify backend starts
+        working-directory: Backend
+        run: |
+          npm ci
+          node --check server.js
+
+      - name: Build frontend Docker image
+        run: docker build -t docker-aws-app:ci -f Frontend/Dockerfile Frontend
