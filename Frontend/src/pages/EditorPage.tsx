@@ -120,10 +120,14 @@ const EditorPage = () => {
 
     providerRef.current = provider;
 
-    // Set awareness
-    provider.awareness.setLocalStateField("user", {
-      name: username,
-      color: "#16a34a",
+    const currentUsername =
+      localStorage.getItem("username") || username;
+
+    provider.socket.on("connect", () => {
+      provider.awareness.setLocalStateField("user", {
+        name: currentUsername,
+        color: "#16a34a",
+      });
     });
 
     // Listen for awareness changes
@@ -131,6 +135,7 @@ const EditorPage = () => {
       const states = Array.from(
         provider.awareness.getStates().values()
       );
+      console.log("Awareness States:", states);
 
       const users = states
         .map(
@@ -145,6 +150,7 @@ const EditorPage = () => {
           ): u is { name: string; color: string } =>
             !!u
         );
+      console.log("Users:", users);
 
       setUser(users);
     });
@@ -207,30 +213,33 @@ const EditorPage = () => {
       <div className="flex gap-3 h-full">
         {/* Sidebar */}
         <ul className="mt-5 flex flex-col gap-2">
-          <h1 className="font-bold text-2xl text-white">Collaborators</h1>
+          <h1 className="font-bold text-2xl text-white">
+            Collaborators
+          </h1>
+
           {user.map((u, index) => {
             const isActive =
               u.name === localStorage.getItem("username");
 
             return (
               <li
-                key={index}
-                className={`font-medium transition-all
-          ${isActive
-                    ? " text-green-400"
-                    : " text-gray-600"
-                  }
-        `}
+                key={u.name}
+                className={`font-medium transition-all ${isActive
+                  ? "text-green-400"
+                  : "text-gray-300"
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className={`
-              ${isActive
-                        ? "bg-green-500"
-                        : "bg-gray-400"
+                    className={`w-2 h-2 rounded-full ${isActive
+                      ? "bg-green-500"
+                      : "bg-gray-400"
                       }`}
                   />
-                  {index + 1}. <span> {u.name}</span>
+
+                  <span>{index + 1}.</span>
+
+                  <span>{u.name}</span>
                 </div>
               </li>
             );

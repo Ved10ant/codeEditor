@@ -37,3 +37,13 @@
 | Awareness     | User presence system           |
 | MonacoBinding | Connector between editor & Yjs |
 | Room          | Shared meeting room            |
+
+
+What is Server: 
+Nodejs => Dependencies => Code => OS === SERVER
+
+DOCKER is a collection of Node , Dependencies and code bundled together as a IMAGE
+DOCKER =>{
+        Nodejs => Dependency => Code => OS = 400mb minimum
+}
+
