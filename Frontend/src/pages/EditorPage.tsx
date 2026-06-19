@@ -15,6 +15,7 @@ const EditorPage = () => {
   });
   const [user, setUser] = useState<{ name: string; color: string }[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [roomId, setRoomId] = useState<string>("monaco-room");
 
   const editorRef = useRef<any>(null);
   const ydocRef = useRef<Y.Doc | null>(null);
@@ -111,7 +112,7 @@ const EditorPage = () => {
     // Create provider
     const provider = new SocketIOProvider(
       apiUrl,
-      "monaco-room",
+      `room:${roomId}`,
       ydoc,
       {
         autoConnect: true,
