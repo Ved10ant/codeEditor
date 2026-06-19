@@ -3,6 +3,7 @@ import { useRef, useEffect, useState } from "react";
 import * as Y from "yjs";
 import { SocketIOProvider } from "y-socket.io";
 import { MonacoBinding } from "y-monaco";
+import { useParams } from "react-router-dom";
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -15,7 +16,8 @@ const EditorPage = () => {
   });
   const [user, setUser] = useState<{ name: string; color: string }[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [roomId, setRoomId] = useState<string>("monaco-room");
+  const { roomId: urlRoomId } = useParams<{ roomId: string }>();
+  const [roomId, setRoomId] = useState<string>(urlRoomId || "monaco-room");
 
   const editorRef = useRef<any>(null);
   const ydocRef = useRef<Y.Doc | null>(null);

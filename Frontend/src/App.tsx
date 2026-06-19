@@ -1,8 +1,16 @@
-import EditorPage from "./pages/EditorPage"
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import EditorPage from "./pages/EditorPage";
+import RoomPage from "./pages/RoomPage";
+
 const App = () => {
   return (
-    <div><EditorPage /></div>
-  )
-}
+    <Router>
+      <Routes>
+        <Route path="/" element={<RoomPage />} />
+        <Route path="/editor/:roomId" element={<EditorPage />} />
+      </Routes>
+    </Router>
+  );
+};
 
-export default App
+export default App;

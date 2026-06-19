@@ -4,10 +4,20 @@ import { Server } from "socket.io";
 import { YSocketIO } from "y-socket.io/dist/server";
 import dotenv from "dotenv";
 import generateRoomId from "./functions/idGeneratorFunc.js";
+import cors from "cors";
+
 dotenv.config();
+
 
 const app = express();
 app.use(express.static("public"))
+
+app.use(cors(
+    {
+        origin:"*",
+        methods: ["GET","POST"],
+    }
+))
 
 const httpServer = createServer(app);
 
