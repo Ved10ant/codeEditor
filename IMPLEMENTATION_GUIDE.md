@@ -473,7 +473,7 @@ aws ecs create-service \
   --cluster collaborative-editor-cluster \
   --service-name collaborative-editor-backend \
   --task-definition collaborative-editor-backend:1 \
-  --desired-count 2 \
+  --desired-count 1 \ # 🚨 Keep at 1 to maintain Yjs/Socket state. Requires Redis if > 1
   --launch-type FARGATE \
   --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=ENABLED}" \
   --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:...,containerName=backend,containerPort=4000"
@@ -495,10 +495,11 @@ aws ecs create-service \
    - Listen on port 80 (HTTP) and 443 (HTTPS)
    - Two target groups:
      - Frontend: port 80
-     - Backend: port 4000
+     - Backend: port 4000 (🚨 **CRITICAL:** You must enable "Sticky Sessions" / "Target Group Stickiness" on this group for Socket.io to work)
 
 2. **Routing Rules**
    ```
+   /socket.io/* → Backend Service
    /api/* → Backend Service
    /* → Frontend Service
    ```

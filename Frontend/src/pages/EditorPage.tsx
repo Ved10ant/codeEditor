@@ -129,6 +129,18 @@ const EditorPage = () => {
         name: currentUsername,
         color: "#16a34a",
       });
+      // 1. Tell the backend this user is joining the room
+      provider.socket.emit("join-room", { roomId });
+
+      // 2. Listen for other users joining
+      provider.socket.on("user-joined", (data: any) => {
+        console.log("A user joined the room!", data);
+      });
+
+      // 3. Listen for when a user leaves the room
+      provider.socket.on("user-left", (data) => {
+        console.log("A user left the room", data);
+      })
     });
 
     // Listen for awareness changes

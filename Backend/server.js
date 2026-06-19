@@ -23,12 +23,39 @@ const ysocket = new YSocketIO(io);
 
 ysocket.initialize();
 
-io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+ysocket.nsp.on("connection", (socket) => {
+    console.log("User connected to Yjs namespace:", socket.id);
 
+    let currentRoomID = null;
+
+    //  1. Add `join-room` event listener
+    socket.on("join-room", ({ roomId }) => {
+        currentRoomID = roomId;
+
+        // 2. Use Socket.io rooms
+        socket.join(`room:${roomId}`);
+        const room = rooms.get(roomId);
+
+        // check whether the user is active
+        if (room) {
+            room.activeUsers.add(socket.id);
+            console.log(room.activeUsers.size)
+        }
+
+        // 3. Emit `user-joined` to specific room
+        // .to() Send to everyone in room EXCEPT current user
+        socket.to(`room:${roomId}`).emit("user-joined", { roomId });
+        console.log(`User ${socket.id} joined room ${roomId}`);
+
+    })
     socket.on("disconnect", () => {
-        console.log("User disconnected:", socket.id);
-    });
+        console.log(`User ${socket.id} left room ${currentRoomID}`);
+        if (currentRoomID) {
+            rooms.get(currentRoomID)?.activeUsers.delete(socket.id);
+        }
+        // 3. Emit `user-left` to specific room
+        socket.to(`room:${currentRoomID}`).emit("user-left", { userId: socket.id });
+    })
 });
 
 app.get("/", (req, res) => {
@@ -61,12 +88,12 @@ app.get("/api/createrooms", (req, res) => {
     }
 })
 app.get("/api/rooms/:id", (req, res) => {
-    const {id} = req.params;
+    const { id } = req.params;
     const room = rooms.get(id);
     if (room) {
         res.status(200).json(room);
     } else {
-        res.status(404).json({ message: "Room not found"})
+        res.status(404).json({ message: "Room not found" })
     }
 })
 app.get("/api/listrooms", (req, res) => {
@@ -80,9 +107,6 @@ app.get("/api/listrooms", (req, res) => {
     })
     res.status(200).json({ rooms: roomlist });
 })
-
-
-
 
 const PORT = process.env.PORT || 3000;
 
