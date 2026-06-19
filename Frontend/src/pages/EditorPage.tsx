@@ -17,7 +17,7 @@ const EditorPage = () => {
   const [user, setUser] = useState<{ name: string; color: string }[]>([]);
   const [inputValue, setInputValue] = useState("");
   const { roomId: urlRoomId } = useParams<{ roomId: string }>();
-  const [roomId, setRoomId] = useState<string>(urlRoomId || "monaco-room");
+  const [roomId, setRoomId] = useState<string>(urlRoomId?.toUpperCase() || "monaco-room");
 
   const editorRef = useRef<any>(null);
   const ydocRef = useRef<Y.Doc | null>(null);

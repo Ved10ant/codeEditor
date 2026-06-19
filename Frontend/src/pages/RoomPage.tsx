@@ -114,7 +114,7 @@ const RoomPage = () => {
                 <input
                   type="text"
                   value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
+                  onChange={(e) => setRoomId(e.target.value.toUpperCase())}
                   placeholder="e.g. A1B2C3D4E5F6"
                   className="w-full bg-[#0b1020] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-colors uppercase"
                 />

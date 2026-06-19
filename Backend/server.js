@@ -40,11 +40,12 @@ ysocket.nsp.on("connection", (socket) => {
 
     //  1. Add `join-room` event listener
     socket.on("join-room", ({ roomId }) => {
-        currentRoomID = roomId;
+        const upperRoomId = roomId.toUpperCase();
+        currentRoomID = upperRoomId;
 
         // 2. Use Socket.io rooms
-        socket.join(`room:${roomId}`);
-        const room = rooms.get(roomId);
+        socket.join(`room:${upperRoomId}`);
+        const room = rooms.get(upperRoomId);
 
         // check whether the user is active
         if (room) {
@@ -54,8 +55,8 @@ ysocket.nsp.on("connection", (socket) => {
 
         // 3. Emit `user-joined` to specific room
         // .to() Send to everyone in room EXCEPT current user
-        socket.to(`room:${roomId}`).emit("user-joined", { roomId });
-        console.log(`User ${socket.id} joined room ${roomId}`);
+        socket.to(`room:${upperRoomId}`).emit("user-joined", { roomId: upperRoomId });
+        console.log(`User ${socket.id} joined room ${upperRoomId}`);
 
     })
     socket.on("disconnect", () => {
@@ -98,7 +99,7 @@ app.get("/api/createrooms", (req, res) => {
     }
 })
 app.get("/api/rooms/:id", (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id.toUpperCase();
     const room = rooms.get(id);
     if (room) {
         res.status(200).json(room);
