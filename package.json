@@ -9,5 +9,9 @@
     "dev:backend": "npm run dev --prefix Backend",
     "build": "npm run build --prefix Frontend",
     "preview": "npm run preview --prefix Frontend"
+  },
+  "dependencies": {
+    "react-hot-toast": "^2.6.0",
+    "react-notify-toast": "^0.5.1"
   }
 }

@@ -37,9 +37,12 @@ ysocket.nsp.on("connection", (socket) => {
     console.log("User connected to Yjs namespace:", socket.id);
 
     let currentRoomID = null;
+    // Map to keep track of socket.id -> username
+    const socketUsernames = new Map();
 
     //  1. Add `join-room` event listener
-    socket.on("join-room", ({ roomId }) => {
+    socket.on("join-room", ({ roomId, username }) => {
+        if (username) socketUsernames.set(socket.id, username);
         const upperRoomId = roomId.toUpperCase();
         currentRoomID = upperRoomId;
 
@@ -62,17 +65,19 @@ ysocket.nsp.on("connection", (socket) => {
 
         // 3. Emit `user-joined` to specific room
         // .to() Send to everyone in room EXCEPT current user
-        socket.to(`room:${upperRoomId}`).emit("user-joined", { roomId: upperRoomId });
-        console.log(`User ${socket.id} joined room ${upperRoomId}`);
+        socket.to(`room:${upperRoomId}`).emit("user-joined", { roomId: upperRoomId, username });
+        console.log(`User ${socket.id} (${username}) joined room ${upperRoomId}`);
 
     })
     socket.on("disconnect", () => {
-        console.log(`User ${socket.id} left room ${currentRoomID}`);
+        const username = socketUsernames.get(socket.id) || "A user";
+        console.log(`User ${socket.id} (${username}) left room ${currentRoomID}`);
         if (currentRoomID) {
             rooms.get(currentRoomID)?.activeUsers.delete(socket.id);
         }
         // 3. Emit `user-left` to specific room
-        socket.to(`room:${currentRoomID}`).emit("user-left", { userId: socket.id });
+        socket.to(`room:${currentRoomID}`).emit("user-left", { userId: socket.id, username });
+        socketUsernames.delete(socket.id);
     })
 });
 

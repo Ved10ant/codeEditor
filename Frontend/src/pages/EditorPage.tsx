@@ -5,6 +5,8 @@ import { SocketIOProvider } from "y-socket.io";
 import { MonacoBinding } from "y-monaco";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import toast, { Toaster } from 'react-hot-toast';
+
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -136,16 +138,18 @@ const EditorPage = () => {
         color: "#16a34a",
       });
       // 1. Tell the backend this user is joining the room
-      provider.socket.emit("join-room", { roomId });
+      provider.socket.emit("join-room", { roomId, username: currentUsername });
 
       // 2. Listen for other users joining
       provider.socket.on("user-joined", (data: any) => {
         console.log("A user joined the room!", data);
+        toast.success(`${data.username} joined the room`);
       });
 
       // 3. Listen for when a user leaves the room
       provider.socket.on("user-left", (data) => {
         console.log("A user left the room", data);
+        toast.error(`${data.username} left the room`);
       })
     });
 
