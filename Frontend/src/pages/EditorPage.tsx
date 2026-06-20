@@ -4,10 +4,12 @@ import * as Y from "yjs";
 import { SocketIOProvider } from "y-socket.io";
 import { MonacoBinding } from "y-monaco";
 import { useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const EditorPage = () => {
+  const navigate = useNavigate();
   const [username, setUsername] = useState<string>(() => {
     const urlUsername = new URLSearchParams(
       window.location.search
@@ -18,6 +20,8 @@ const EditorPage = () => {
   const [inputValue, setInputValue] = useState("");
   const { roomId: urlRoomId } = useParams<{ roomId: string }>();
   const [roomId, setRoomId] = useState<string>(urlRoomId?.toUpperCase() || "monaco-room");
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState<boolean>(false);
+  const [newRoomId, setNewRoomId] = useState<string>("");
 
   const editorRef = useRef<any>(null);
   const ydocRef = useRef<Y.Doc | null>(null);
@@ -198,6 +202,7 @@ const EditorPage = () => {
     );
   };
 
+
   if (!username) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -259,11 +264,13 @@ const EditorPage = () => {
               </li>
             );
           })}
+          <button onClick={() => setIsJoinModalOpen(true)} className="bg-white text-black font-semibold px-4 py-2 rounded-md cursor-pointer hover:bg-gray-200 transition-colors duration-200 ease-in-out">Join Room</button>
         </ul>
 
         {/* Editor */}
         <div className="flex-1 bg-[#1d1d1d] rounded-2xl overflow-hidden border border-[#2c2c2c]">
           <Editor
+            className="mt-3"
             height="100%"
             defaultLanguage="javascript"
             defaultValue="// Start collaborating..."
@@ -279,6 +286,48 @@ const EditorPage = () => {
           />
         </div>
       </div>
+
+      {/* Join Room Modal */}
+      {isJoinModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1d1d1d] border border-[#2c2c2c] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="text-xl font-bold text-white mb-4">Join Another Room</h2>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (newRoomId.trim()) {
+                window.location.href = `/editor/${newRoomId.trim().toUpperCase()}`;
+              }
+            }}>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Room ID
+              </label>
+              <input
+                type="text"
+                value={newRoomId}
+                onChange={(e) => setNewRoomId(e.target.value.toUpperCase())}
+                placeholder="e.g. A1B2C3D4E5F6"
+                className="w-full bg-[#0b1020] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-colors uppercase mb-6"
+                required
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsJoinModalOpen(false)}
+                  className="flex-1 py-2 rounded-lg font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg shadow-lg shadow-green-500/30 transition-all"
+                >
+                  Join
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

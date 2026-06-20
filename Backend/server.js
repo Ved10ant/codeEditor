@@ -45,13 +45,20 @@ ysocket.nsp.on("connection", (socket) => {
 
         // 2. Use Socket.io rooms
         socket.join(`room:${upperRoomId}`);
-        const room = rooms.get(upperRoomId);
+        let room = rooms.get(upperRoomId);
 
         // check whether the user is active
-        if (room) {
-            room.activeUsers.add(socket.id);
-            console.log(room.activeUsers.size)
+        if (!room) {
+            room = {
+                name: upperRoomId,
+                createdAt: new Date(),
+                activeUsers: new Set()
+            };
+            rooms.set(upperRoomId, room);
         }
+
+        room.activeUsers.add(socket.id);
+        console.log(room.activeUsers.size);
 
         // 3. Emit `user-joined` to specific room
         // .to() Send to everyone in room EXCEPT current user
@@ -100,12 +107,23 @@ app.get("/api/createrooms", (req, res) => {
 })
 app.get("/api/rooms/:id", (req, res) => {
     const id = req.params.id.toUpperCase();
-    const room = rooms.get(id);
-    if (room) {
-        res.status(200).json(room);
-    } else {
-        res.status(404).json({ message: "Room not found" })
+    let room = rooms.get(id);
+    
+    // Auto-create room if it doesn't exist (e.g., after server restart)
+    if (!room) {
+        room = {
+            name: id,
+            createdAt: new Date(),
+            activeUsers: new Set()
+        };
+        rooms.set(id, room);
     }
+    
+    res.status(200).json({
+        name: room.name,
+        createdAt: room.createdAt,
+        activeUsers: Array.from(room.activeUsers)
+    });
 })
 app.get("/api/listrooms", (req, res) => {
     const roomlist = [];
@@ -113,7 +131,7 @@ app.get("/api/listrooms", (req, res) => {
         roomlist.push({
             name: room.name,
             createdAt: room.createdAt,
-            activeUsers: room.activeUsers
+            activeUsers: Array.from(room.activeUsers)
         });
     })
     res.status(200).json({ rooms: roomlist });
