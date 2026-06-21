@@ -29,3 +29,19 @@ services:
     ports:
       - "4000:4000"
     restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/collaborative-editor
+
+  mongodb:
+    image: mongo:latest
+    profiles: [dev, prod]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

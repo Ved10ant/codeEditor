@@ -5,8 +5,16 @@ import { YSocketIO } from "y-socket.io/dist/server";
 import dotenv from "dotenv";
 import generateRoomId from "./functions/idGeneratorFunc.js";
 import cors from "cors";
+import mongoose from "mongoose";
+import Document from "./models/Document.js";
+import * as Y from "yjs";
 
 dotenv.config();
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch(err => console.error("MongoDB connection error:", err));
 
 
 const app = express();
@@ -32,6 +40,49 @@ const io = new Server(httpServer, {
 const ysocket = new YSocketIO(io);
 
 ysocket.initialize();
+
+// Document Persistence Logic
+ysocket.on('document-loaded', async (doc) => {
+    console.log(`Document loaded in memory: ${doc.name}`);
+    try {
+        const dbDoc = await Document.findOne({ roomId: doc.name });
+        if (dbDoc && dbDoc.content) {
+            console.log(`Applying existing state for ${doc.name} from MongoDB`);
+            Y.applyUpdate(doc, dbDoc.content);
+        } else {
+            console.log(`No existing state for ${doc.name} in MongoDB, starting fresh.`);
+        }
+    } catch (err) {
+        console.error(`Error loading document ${doc.name} from DB:`, err);
+    }
+});
+
+// Debounce map to avoid saving on every single keystroke
+const saveDebounceMap = new Map();
+
+ysocket.on('document-update', async (doc, update) => {
+    // Debounce saving to DB (e.g., save 2 seconds after last keystroke)
+    if (saveDebounceMap.has(doc.name)) {
+        clearTimeout(saveDebounceMap.get(doc.name));
+    }
+    
+    saveDebounceMap.set(doc.name, setTimeout(async () => {
+        try {
+            const state = Y.encodeStateAsUpdate(doc);
+            await Document.findOneAndUpdate(
+                { roomId: doc.name },
+                { content: Buffer.from(state), lastModified: new Date() },
+                { upsert: true }
+            );
+            console.log(`Document ${doc.name} saved to MongoDB`);
+        } catch (err) {
+            console.error(`Error saving document ${doc.name} to DB:`, err);
+        }
+        saveDebounceMap.delete(doc.name);
+    }, 2000));
+});
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+// Summary of the flow: You type a character ➔ Saved in your Browser ➔ Sent to Server Memory ➔ Sent to other users' Browsers ➔ After 2 seconds of no typing, saved to MongoDB.
 
 ysocket.nsp.on("connection", (socket) => {
     console.log("User connected to Yjs namespace:", socket.id);
