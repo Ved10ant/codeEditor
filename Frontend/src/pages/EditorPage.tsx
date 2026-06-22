@@ -4,14 +4,12 @@ import * as Y from "yjs";
 import { SocketIOProvider } from "y-socket.io";
 import { MonacoBinding } from "y-monaco";
 import { useParams } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const EditorPage = () => {
-  const navigate = useNavigate();
   const [username, setUsername] = useState<string>(() => {
     const urlUsername = new URLSearchParams(
       window.location.search
@@ -21,7 +19,7 @@ const EditorPage = () => {
   const [user, setUser] = useState<{ name: string; color: string }[]>([]);
   const [inputValue, setInputValue] = useState("");
   const { roomId: urlRoomId } = useParams<{ roomId: string }>();
-  const [roomId, setRoomId] = useState<string>(urlRoomId?.toUpperCase() || "monaco-room");
+  const [roomId] = useState<string>(urlRoomId?.toUpperCase() || "monaco-room");
   const [isJoinModalOpen, setIsJoinModalOpen] = useState<boolean>(false);
   const [newRoomId, setNewRoomId] = useState<string>("");
 
