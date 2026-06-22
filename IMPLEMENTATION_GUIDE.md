@@ -158,7 +158,7 @@ MONGODB_URI=mongodb://localhost:27017/collaborative-editor
 ## 🚀 Priority 3: GitHub Actions CI Pipeline
 
 ### Goal
-Automate build → test → Docker build → push to ECR on each commit.
+Automate build → test → Docker build → push to Docker Hub on each commit.
 
 ### File to Create
 `.github/workflows/ci-cd.yml`
@@ -190,61 +190,29 @@ Event: push to main/dev branch
 └─ Verify dependencies resolve
 ```
 
-#### Stage 4: Docker Build (Main Branch Only)
+#### Stage 4: Docker Build & Push (Main Branch Only)
 ```
 if: github.ref == 'refs/heads/main'
-├─ Configure AWS credentials
-├─ Login to ECR
+├─ Login to Docker Hub
 ├─ Build Docker image for Frontend
 ├─ Tag: :latest and :${{ github.sha }}
-├─ Push Frontend image to ECR
+├─ Push Frontend image to Docker Hub
 ├─ Build Docker image for Backend
-├─ Push Backend image to ECR
-└─ Output: Image URIs
+├─ Push Backend image to Docker Hub
+└─ Output: Image Tags
 ```
 
 ### Environment Variables Needed
 ```yaml
 env:
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY_FRONTEND: collaborative-editor-frontend
-  ECR_REPOSITORY_BACKEND: collaborative-editor-backend
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 ```
 
 ### GitHub Secrets to Configure
 ```
 Settings → Secrets and variables → Actions
-├─ AWS_ACCOUNT_ID: your-12-digit-aws-account-id
-├─ AWS_ACCESS_KEY_ID: IAM user access key
-└─ AWS_SECRET_ACCESS_KEY: IAM user secret key
-```
-
-### IAM Permissions Required
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:CreateRepository"
-      ],
-      "Resource": "arn:aws:ecr:*:AWS_ACCOUNT_ID:repository/*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "ecr:GetAuthorizationToken",
-      "Resource": "*"
-    }
-  ]
-}
+├─ DOCKERHUB_USERNAME: your-dockerhub-username
+└─ DOCKERHUB_TOKEN: your-dockerhub-access-token
 ```
 
 ### GitHub Actions YAML Structure
@@ -274,7 +242,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      # ... docker build & push to ECR
+      # ... docker build & push to Docker Hub
 ```
 
 ### Testing Checklist
@@ -282,289 +250,104 @@ jobs:
 - [ ] Frontend builds successfully
 - [ ] Backend dependencies resolve
 - [ ] Docker image builds
-- [ ] Image pushed to ECR with correct tag
-- [ ] View ECR console → image present with correct digest
+- [ ] Image pushed to Docker Hub with correct tag
+- [ ] View Docker Hub repository → image present with correct tag
 
 ---
 
-## ☁️ Priority 4: AWS ECS Deployment
+## 🐳 Priority 4: Docker Build Validation
 
 ### Goal
-Deploy containerized Frontend and Backend to AWS ECS (Fargate).
+Validate that the built Docker images run correctly. Instead of deploying to AWS, we will pull the built images from Docker Hub and run them locally using Docker Compose to ensure the multi-container application works as expected.
 
 ### Architecture
 ```
 GitHub Actions
     ↓ (push images)
-AWS ECR (image registry)
+Docker Hub (image registry)
     ↓ (pull images)
-AWS ECS Cluster (Fargate)
-├─ Frontend Service (port 80 → 5173 or 80)
-├─ Backend Service (port 4000)
-└─ Load Balancer (ALB)
-    ↓
-Internet
+Local Environment
+├─ Frontend Container (port 80)
+├─ Backend Container (port 4000)
 ```
 
 ### Prerequisites
-1. AWS Account
-2. AWS CLI configured: `aws configure`
-3. ECR repositories created
-4. ECS cluster created
-5. Load Balancer (ALB) created
-6. VPC & security groups configured
+1. Docker Desktop installed locally
+2. Docker Hub account
+3. Docker Compose file ready
 
-### Step 1: Create ECR Repositories
+### Step 1: Create docker-compose.yml
 
-```bash
-# Frontend
-aws ecr create-repository \
-  --repository-name collaborative-editor-frontend \
-  --region us-east-1
+Create a `docker-compose.prod.yml` to pull the latest images from Docker Hub and run them.
 
-# Backend
-aws ecr create-repository \
-  --repository-name collaborative-editor-backend \
-  --region us-east-1
-```
-
-### Step 2: Create ECS Cluster
-
-```bash
-aws ecs create-cluster \
-  --cluster-name collaborative-editor-cluster \
-  --region us-east-1
-```
-
-### Step 3: Create IAM Roles for ECS
-
-**ecsTaskExecutionRole** (allows ECS to pull images from ECR)
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ecr:GetAuthorizationToken",
-        "ecr:BatchGetImage",
-        "ecr:GetDownloadUrlForLayer"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-### Step 4: Create Task Definitions
-
-#### Backend Task Definition
-```json
-{
-  "family": "collaborative-editor-backend",
-  "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
-  "containerDefinitions": [
-    {
-      "name": "backend",
-      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/collaborative-editor-backend:latest",
-      "portMappings": [
-        {
-          "containerPort": 4000,
-          "hostPort": 4000,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        {
-          "name": "NODE_ENV",
-          "value": "production"
-        },
-        {
-          "name": "PORT",
-          "value": "4000"
-        },
-        {
-          "name": "MONGODB_URI",
-          "value": "mongodb+srv://user:pass@cluster.mongodb.net/db"
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/collaborative-editor-backend",
-          "awslogs-region": "us-east-1",
-          "awslogs-stream-prefix": "ecs"
-        }
-      }
-    }
-  ],
-  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole"
-}
-```
-
-#### Frontend Task Definition
-```json
-{
-  "family": "collaborative-editor-frontend",
-  "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
-  "containerDefinitions": [
-    {
-      "name": "frontend",
-      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/collaborative-editor-frontend:latest",
-      "portMappings": [
-        {
-          "containerPort": 80,
-          "hostPort": 80,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        {
-          "name": "VITE_API_URL",
-          "value": "https://api.yourdomain.com"
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/collaborative-editor-frontend",
-          "awslogs-region": "us-east-1",
-          "awslogs-stream-prefix": "ecs"
-        }
-      }
-    }
-  ],
-  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole"
-}
-```
-
-### Step 5: Register Task Definitions
-
-```bash
-# Backend
-aws ecs register-task-definition \
-  --cli-input-json file://backend-task-definition.json
-
-# Frontend
-aws ecs register-task-definition \
-  --cli-input-json file://frontend-task-definition.json
-```
-
-### Step 6: Create ECS Services
-
-```bash
-# Backend Service
-aws ecs create-service \
-  --cluster collaborative-editor-cluster \
-  --service-name collaborative-editor-backend \
-  --task-definition collaborative-editor-backend:1 \
-  --desired-count 1 \ # 🚨 Keep at 1 to maintain Yjs/Socket state. Requires Redis if > 1
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=ENABLED}" \
-  --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:...,containerName=backend,containerPort=4000"
-
-# Frontend Service
-aws ecs create-service \
-  --cluster collaborative-editor-cluster \
-  --service-name collaborative-editor-frontend \
-  --task-definition collaborative-editor-frontend:1 \
-  --desired-count 2 \
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=ENABLED}" \
-  --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:...,containerName=frontend,containerPort=80"
-```
-
-### Step 7: Configure Load Balancer (ALB)
-
-1. **Create Application Load Balancer**
-   - Listen on port 80 (HTTP) and 443 (HTTPS)
-   - Two target groups:
-     - Frontend: port 80
-     - Backend: port 4000 (🚨 **CRITICAL:** You must enable "Sticky Sessions" / "Target Group Stickiness" on this group for Socket.io to work)
-
-2. **Routing Rules**
-   ```
-   /socket.io/* → Backend Service
-   /api/* → Backend Service
-   /* → Frontend Service
-   ```
-
-### Step 8: Setup Auto Scaling
-
-```bash
-# Register scalable target
-aws application-autoscaling register-scalable-target \
-  --service-namespace ecs \
-  --resource-id service/collaborative-editor-cluster/collaborative-editor-backend \
-  --scalable-dimension ecs:service:DesiredCount \
-  --min-capacity 1 \
-  --max-capacity 10
-
-# Create scaling policy (scale up if CPU > 70%)
-aws application-autoscaling put-scaling-policy \
-  --policy-name cpu-scaling \
-  --service-namespace ecs \
-  --resource-id service/collaborative-editor-cluster/collaborative-editor-backend \
-  --scalable-dimension ecs:service:DesiredCount \
-  --policy-type TargetTrackingScaling \
-  --target-tracking-scaling-policy-configuration "TargetValue=70.0,PredefinedMetricSpecification={PredefinedMetricType=ECSServiceAverageCPUUtilization}"
-```
-
-### Step 9: Setup Monitoring & Logging
-
-1. **CloudWatch Logs**
-   - Logs automatically go to `/ecs/collaborative-editor-*`
-   - View in CloudWatch console
-
-2. **CloudWatch Alarms**
-   ```bash
-   aws cloudwatch put-metric-alarm \
-     --alarm-name backend-cpu-high \
-     --alarm-description "Alert if backend CPU > 80%" \
-     --metric-name CPUUtilization \
-     --namespace AWS/ECS \
-     --statistic Average \
-     --period 300 \
-     --threshold 80 \
-     --comparison-operator GreaterThanThreshold
-   ```
-
-### Step 10: Update GitHub Actions to Deploy
-
-Add to CI/CD pipeline after Docker push:
 ```yaml
-- name: Update ECS Service
-  run: |
-    aws ecs update-service \
-      --cluster collaborative-editor-cluster \
-      --service collaborative-editor-backend \
-      --force-new-deployment
+version: '3.8'
+services:
+  frontend:
+    image: your-dockerhub-username/collaborative-editor-frontend:latest
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:4000
+    depends_on:
+      - backend
+
+  backend:
+    image: your-dockerhub-username/collaborative-editor-backend:latest
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - MONGODB_URI=${MONGODB_URI}
+      - CORS_ORIGIN=http://localhost
+```
+
+### Step 2: Validate Deployment Locally
+
+1. Create a `.env` file with your `MONGODB_URI`.
+2. Run the environment using Docker Compose:
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Step 3: CI/CD Pipeline Integration
+
+You can add a validation step in your GitHub Actions pipeline to ensure the built images can successfully start up using Docker.
+
+```yaml
+  validate:
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Docker Build Validation
+        run: |
+          # Start containers
+          docker-compose -f docker-compose.prod.yml up -d
+          
+          # Wait for services to be ready
+          sleep 10
+          
+          # Check if containers are running
+          docker ps
+          
+          # Check health of the backend
+          curl -f http://localhost:4000/api/health || exit 1
+          
+          # Tear down
+          docker-compose -f docker-compose.prod.yml down
 ```
 
 ### Testing Checklist
-- [ ] ECR repositories created and images present
-- [ ] ECS cluster running
-- [ ] Backend task running in ECS (check ECS console)
-- [ ] Frontend task running in ECS
-- [ ] Load Balancer healthy status (targets passing health checks)
-- [ ] Access frontend via ALB domain name
-- [ ] Frontend can communicate with backend
-- [ ] Auto-scaling works (watch task count increase under load)
+- [ ] `docker-compose.prod.yml` is configured to pull images from Docker Hub.
+- [ ] Running `docker-compose up` locally successfully pulls and starts the containers.
+- [ ] Backend is reachable on port 4000.
+- [ ] Frontend is reachable on port 80.
+- [ ] GitHub Actions pipeline successfully runs the validation step.
 
 ---
 
@@ -581,17 +364,17 @@ Week 2: MongoDB Persistence
   ├─ Backend: add Mongoose + save/load logic
   └─ Testing data persistence
 
-Week 3: GitHub Actions
+Week 3: GitHub Actions CI Pipeline
   ├─ Create CI pipeline
-  ├─ Setup AWS credentials as secrets
-  ├─ Test: push code → auto build & push to ECR
-  └─ Verify images in ECR
+  ├─ Setup Docker Hub credentials as secrets
+  ├─ Test: push code → auto build & push to Docker Hub
+  └─ Verify images in Docker Hub
 
-Week 4: ECS Deployment
-  ├─ AWS setup: cluster, roles, task definitions
-  ├─ Create services + ALB
-  ├─ Setup auto-scaling & monitoring
-  └─ Deploy and test
+Week 4: Docker Build Validation
+  ├─ Create docker-compose.prod.yml
+  ├─ Test pulling and running images locally
+  ├─ Add validation step to CI pipeline
+  └─ Complete end-to-end testing
 ```
 
 ---
@@ -604,12 +387,12 @@ NODE_ENV=production
 PORT=4000
 HOST=0.0.0.0
 MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/db
-CORS_ORIGIN=https://yourdomain.com
+CORS_ORIGIN=http://localhost
 ```
 
 ### Frontend (.env)
 ```
-VITE_API_URL=https://api.yourdomain.com
+VITE_API_URL=http://localhost:4000
 ```
 
 ---
@@ -620,32 +403,29 @@ VITE_API_URL=https://api.yourdomain.com
 |-------|----------|
 | CORS errors | Update CORS_ORIGIN in backend .env |
 | MongoDB connection timeout | Whitelist IP in MongoDB Atlas or use local MongoDB |
-| ECS tasks failing to start | Check CloudWatch logs, verify image exists in ECR |
-| Frontend can't reach backend | Verify ALB routing rules, security groups open ports |
-| Auto-scaling not working | Check IAM permissions, scaling policy thresholds |
+| Containers failing to start | Check docker logs, verify environment variables |
+| Images fail to push to Docker Hub | Check GitHub Secrets for DOCKERHUB_USERNAME and TOKEN |
+| Docker Hub rate limits | Authenticate docker pull requests using your token |
 
 ---
 
 ## 📚 Useful Commands
 
 ```bash
-# View ECS tasks
-aws ecs list-tasks --cluster collaborative-editor-cluster
+# Build images locally
+docker-compose build
 
-# View task details
-aws ecs describe-tasks --cluster collaborative-editor-cluster --tasks <task-arn>
+# Run images from Docker Hub
+docker-compose -f docker-compose.prod.yml up -d
 
-# View service details
-aws ecs describe-services --cluster collaborative-editor-cluster --services collaborative-editor-backend
+# View container logs
+docker-compose -f docker-compose.prod.yml logs -f
 
-# View ECR images
-aws ecr describe-images --repository-name collaborative-editor-backend
+# Stop and remove containers
+docker-compose -f docker-compose.prod.yml down
 
-# Tail logs
-aws logs tail /ecs/collaborative-editor-backend --follow
-
-# Update image in service
-aws ecs update-service --cluster collaborative-editor-cluster --service collaborative-editor-backend --force-new-deployment
+# Push images manually
+docker push username/repo:tag
 ```
 
 ---
@@ -654,9 +434,9 @@ aws ecs update-service --cluster collaborative-editor-cluster --service collabor
 
 - [ ] Room system works: create/join rooms with isolation
 - [ ] Documents persist in MongoDB across restarts
-- [ ] GitHub Actions auto-builds and pushes images on commit
-- [ ] ECS services running with healthy target groups
-- [ ] Frontend accessible via ALB
+- [ ] GitHub Actions auto-builds and pushes images to Docker Hub on commit
+- [ ] Docker Compose can run the production images locally
+- [ ] GitHub Actions validation step successfully runs the containers
 - [ ] Multiple users can collaborate in real-time
-- [ ] Auto-scaling responds to load
+
 

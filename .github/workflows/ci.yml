@@ -30,6 +30,15 @@ jobs:
 
       - run: npm run build
 
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Frontend
+          push: true
+          tags: |
+            ved10ant/codeeditor-frontend:latest
+            ved10ant/codeeditor-frontend:${{ github.sha }}
+
   backend:
     runs-on: ubuntu-latest
 
@@ -45,3 +54,12 @@ jobs:
           node-version: 22
 
       - run: npm install
+
+      - name: Build and Push Backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Backend
+          push: true
+          tags: |
+            ved10ant/codeeditor-backend:latest
+            ved10ant/codeeditor-backend:${{ github.sha }}
